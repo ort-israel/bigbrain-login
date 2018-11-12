@@ -1,5 +1,5 @@
-/* YRSS 1.1.2 */
-/* Copyright (c) 2017 Mark Hillard - MIT License */
+/* YRSS 1.1.7 */
+/* Copyright (c) 2018 Mark Hillard - MIT License */
 
 (function ($) {
 
@@ -11,7 +11,7 @@
         // plugin defaults
         var defaults = {
             ssl: false,
-            limit: 2,
+            limit: 10,
             reverse: false,
             cache: true,
             maxage: 3600,
@@ -22,10 +22,11 @@
             dateformat: 'default',
             titletag: 'h4',
             content: true,
-            image: true,
+            image: false,
             snippet: true,
-            snippetlimit: 100,
-            linktarget: '_self'
+            snippetlimit: 120,
+            linktarget: '_self',
+            logging: false
         };
 
         // extend options
@@ -35,63 +36,77 @@
         return this.each(function (i, e) {
             // check for ssl protocol
             var s = '';
-            if (options.ssl) { s = 's'; }
+            if (options.ssl) {
+                s = 's';
+            }
 
             // add class to container
-            if (!$(e).hasClass('rss-feed')) { $(e).addClass('rss-feed'); }
+            if (!$(e).hasClass('yrss')) {
+                $(e).addClass('yrss');
+            }
 
             // check for valid url
-            if (url === null) { return false; }
+            if (!url) {
+                return false;
+            }
 
             // create yql query
             var query = 'http' + s + '://query.yahooapis.com/v1/public/yql?q=' + encodeURIComponent('select * from feed where url="' + url + '"');
 
             // set limit
-            if (options.limit !== null) { query += ' limit ' + options.limit; }
+            if (!!options.limit) {
+                query += ' limit ' + options.limit;
+            }
 
             // reverse feed order
-            if (options.reverse) { query += ' | reverse()'; }
+            if (options.reverse) {
+                query += ' | reverse()';
+            }
 
             // set maximum cache age
-            if (options.cache) { query += '&_maxage=' + options.maxage; }
+            if (options.cache) {
+                query += '&_maxage=' + options.maxage;
+            }
 
             // specify format
             query += '&format=json';
 
             // send request
             $.getJSON(query, function (data, status, errorThrown) {
-                // if successful... *
+                // if successful
                 if (status === 'success') {
-                    // * run function to create html result
+                    // run function to create html result
                     process(e, data, options);
 
-                    // * optional callback function
-                    if ($.isFunction(fn)) { fn.call(this, $(e)); }
+                    // optional callback function
+                    if ($.isFunction(fn)) {
+                        fn.call(this, $(e));
+                    }
 
-                // if there's an error... *
+                    // if there's an error
                 } else if (status === 'error' || status === 'parsererror') {
-                    // if showerror option is true... *
+                    // if showerror option is true
                     if (options.showerror) {
                         // variable scoping (error)
                         var msg;
 
-                        // if errormsg option is not empty... *
+                        // if errormsg option is not empty
                         if (options.errormsg !== '') {
-                            // * assign custom error message
+                            // assign custom error message
                             msg = options.errormsg;
 
-                        // if errormsg option is empty... *
+                            // if errormsg option is empty
                         } else {
-                            // * assign default error message
+                            // assign default error message
                             msg = errorThrown;
                         }
 
-                        // * display error message
+                        // display error message
                         $(e).html('<div class="rss-error"><p>' + msg + '</p></div>');
 
-                    // if showerror option is false... *
+                        // if showerror option is false
                     } else {
-                        // * abort
+                        // abort
                         return false;
                     }
                 }
@@ -105,38 +120,72 @@
         var entries = data.query.results.item;
 
         // check if entries are not inside an array (only 1 entry)
-        if (!$.isArray(entries)) { entries = [entries]; }
+        if (!$.isArray(entries)) {
+            entries = [entries];
+        }
+
+        // log object data to console if logging is true
+        if (options.logging) {
+            console.log('Object Data:');
+            console.log(data);
+            console.log('Entry Array:');
+            console.log(entries);
+        }
 
         // abort if no entries exist
-        if (!entries) { return false; }
+        if (!entries) {
+            return false;
+        }
 
         // html variables
-        var html = '';
-        var htmlObject;
+        var html = '',
+            htmlObject;
 
-        // for each entry... *
+        // for each entry
         $.each(entries, function (i) {
-            // * assign entry variable
+            // assign entry variable
             var entry = entries[i];
 
-            // * variable scoping (tags)
+            // variable scoping (tags)
             var tags;
 
-            // if entry tags exist... *
-            if (entry.category !== undefined) {
-                // * arrange entry tags
-                tags = entry.category.toString().toLowerCase().replace(/ /g, '-').replace(/,/g, ' ');
+            // if entry tags exist
+            if (!!entry.category) {
+                // check for data type
+                if ($.isArray(entry.category)) {
+                    var arr = Object.keys(entry.category).map(function (key) {
+                        if (entry.category[key].domain !== '') {
+                            return entry.category[key].domain + ':' + entry.category[key].content;
+                        } else {
+                            return entry.category[key].content;
+                        }
+                    });
+                    tags = arr;
+                } else if ($.type(entry.category) === 'object') {
+                    var domain = entry.category.domain,
+                        obj = entry.category.content;
+                    if (entry.category.domain !== '') {
+                        tags = domain + ':' + obj;
+                    } else {
+                        tags = obj;
+                    }
+                } else {
+                    tags = entry.category;
+                }
+
+                // arrange entry tags
+                tags = tags.toString().toLowerCase().replace(/ /g, '-').replace(/,/g, ' ');
             }
 
-            // * variable scoping (date)
+            // variable scoping (date)
             var pubDate;
 
-            // if date option is true... *
+            // if date option is true
             if (entry.pubDate) {
-                // * create date object
+                // create date object
                 var entryDate = new Date(entry.pubDate);
 
-                // * select date format
+                // select date format
                 if (options.dateformat === 'default') {
                     pubDate = (entryDate.getMonth() + 1).toString() + '/' + entryDate.getDate().toString() + '/' + entryDate.getFullYear();
                 } else if (options.dateformat === 'spellmonth') {
@@ -149,63 +198,74 @@
                 }
             }
 
-            // * build entry
-            html += '<li class="entry-wrapper"';
-            if (options.tags && entry.category !== undefined) { html += 'data-tag="' + tags + '"'; }
+            // build entry
+            html += '<div class="entry-wrapper"';
+            if (options.tags && !!entry.category) {
+                html += 'data-tag="' + tags + '"';
+            }
             html += '><div class="entry-title"><' + options.titletag + '><a href="' + entry.link + '">' + entry.title + '</a></' + options.titletag + '></div>';
+            if (options.date && pubDate) {
+                html += '<div class="entry-date">' + pubDate + '</div>';
+            }
 
-
-            // if content option is true... *
+            // if content option is true
             if (options.content) {
-                // * check for rss description/encoded value
+                // check for rss description/encoded value
                 var content;
-                if (entry.description !== undefined) {
+                if (!!entry.description) {
                     content = $.trim(entry.description);
                 } else {
                     content = $.trim(entry.encoded);
                 }
 
-                // * build content
+                // build content
                 html += '<div class="entry-content">' + content + '</div>';
             }
-            if (options.date && pubDate) { html += '<div class="entry-date">' + pubDate + '</div>'; }
-            html += '</li>';
+
+            html += '</div>';
         });
 
         // provisional html result
         htmlObject = $(html);
 
-        // if content option is true... *
+        // if content option is true
         if (options.content) {
-            // for each entry... *
+            // for each entry
             $.each(htmlObject, function () {
-                // if image option is true... *
+                // if image option is true
                 if (options.image) {
-
-                    // * check for first image
+                    // check for first image
                     var image = $(this).find('img').first();
-                    console.log(this);
 
-                    // if image exists... *
+                    // if image exists
                     if (image.length !== 0) {
-
-                        // * create image wrapper
+                        // create image wrapper
                         $(this).prepend('<div class="entry-image">');
 
-                        // * append first image in image wrapper and wrap all textual elements after it
+                        // append first image in image wrapper and wrap all text elements after it
                         $(this).find('.entry-image').append(image).nextAll().wrapAll('<div class="entry-text"></div>');
-                    }
-                    else{
+
+                        // if image does not exist
+                    } else {
+                        /*// create text wrapper
+                        $(this).children().wrapAll('<div class="entry-text"></div>');*/
+                        // Lea 2018/11: show default image if no image from RSS
                         $(this).prepend('<div class="entry-image">');
-                        $(this).find('.entry-image').append('<img id="theImg" src="img/difPic.png" />')
+                        -$(this).find('.entry-image').append('<img id="theImg" src="img/difPic.png" />');
+
                     }
+
+                    // if image option is false
+                } else {
+                    // remove all images from content
+                    $(this).find('img').remove();
                 }
 
-                // if snippet option is true... *
+                // if snippet option is true
                 if (options.snippet) {
-                    // * set character limit
-                    var content = $(this).find('.entry-content');
-                    var contentLength = $(content).text().length;
+                    // set character limit
+                    var content = $(this).find('.entry-content'),
+                        contentLength = $(content).text().length;
                     content.text(function (i, v) {
                         if (contentLength === 0) {
                             return '';
