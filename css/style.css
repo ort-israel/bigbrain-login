@@ -350,7 +350,7 @@ footer.row-content {
 }
 
 #loginbtn,
-#guestButton {
+#guestbtn {
     border: none;
     font-size: 1.5rem;
     position: relative;
@@ -366,7 +366,7 @@ footer.row-content {
     background-position: 0.5rem -1.3rem;
 }
 
-#guestButton {
+#guestbtn {
     background-color: #c6c6c6;
     color: inherit;
     margin-top: 1.5rem;
