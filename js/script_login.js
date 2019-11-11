@@ -9,8 +9,8 @@ $(document).ready(function () {
     * so just fill the input fields with guest value, and invoke the submit.
     * In 11/2018 changed to super guest. */
     // add the url to be redirected when guest button is clicked
-    var guest_redirect = "window.parent.location.href='https://campus.ort.org.il/tools/anonymous/generateuser.php?";
-    if (course_section) {
+    var guest_redirect = "window.parent.location.href='https://campusdev.ort.org.il/blocks/anonymous_user/generateuser.php?";
+    if(course_section){
         guest_redirect = guest_redirect + course_section + "'";
     }
     else {
@@ -18,4 +18,3 @@ $(document).ready(function () {
     }
     $('#guestbtn').attr('onclick', guest_redirect);
 });
-
